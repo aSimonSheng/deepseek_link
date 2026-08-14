@@ -9,7 +9,6 @@
 ```text
 AGENTS.md
 docs/mobile-pc-plugin/README.md
-docs/mobile-pc-plugin/README.md
 docs/mobile-pc-plugin/08-mobile-pc-plugin-constitution.md
 docs/mobile-pc-plugin/09-marketplace-ready-plugin-analysis.md
 ```
@@ -55,6 +54,13 @@ docs/mobile-pc-plugin/09-marketplace-ready-plugin-analysis.md
 - 已通过 corepack 启动 pnpm，并完成依赖安装、lockfile 生成、git 初始化和基础验证。
 - 验证通过：`pnpm verify`、`pnpm test:e2e`、`pnpm preflight:marketplace`。
 - 注意：真实 DSH 集成、真实 LAN 控制面、真实 shell、任意文件系统访问、真实 DeepSeek API 调用仍被阻断。
+
+2026-08-14 manifest update:
+
+- `ADR-0005` 已新增并接受：Manifest Schema and Permission Model。
+- 已在 `packages/protocol` 中新增 manifest 类型和纯校验逻辑。
+- 已统一 MVP `plugin.manifest.json` 权限键为 `secret.read` / `secret.write` / `artifact.read.summary`。
+- 已新增 manifest contract tests，覆盖有效 manifest、缺字段、未知类型、未知权限、移动端 secret 权限、transport shell 权限和非字符串 capability。
 
 ## 2. 优先级定义
 

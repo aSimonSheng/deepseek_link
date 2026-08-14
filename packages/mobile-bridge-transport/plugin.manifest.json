@@ -18,7 +18,7 @@
   "permissions": {
     "network.listen": ["127.0.0.1", "lan"],
     "network.connect": [],
-    "secrets.read": [],
-    "secrets.write": []
+    "secret.read": [],
+    "secret.write": []
   }
 }

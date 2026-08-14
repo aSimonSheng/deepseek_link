@@ -13,8 +13,8 @@
     "artifact.summary"
   ],
   "permissions": {
-    "secrets.read": [],
-    "secrets.write": [],
-    "artifact.read": ["summary"]
+    "secret.read": [],
+    "secret.write": [],
+    "artifact.read.summary": true
   }
 }
