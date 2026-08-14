@@ -1,0 +1,27 @@
+{
+  "name": "deepseek-link",
+  "version": "0.0.0",
+  "private": true,
+  "description": "DeepSeek Harness mobile-PC linkage plugin workspace.",
+  "packageManager": "pnpm@9.15.4",
+  "engines": {
+    "node": ">=20.11.0"
+  },
+  "type": "module",
+  "scripts": {
+    "lint": "tsc -b --pretty false",
+    "typecheck": "tsc -b --pretty false",
+    "test": "vitest run",
+    "test:contract": "vitest run tests/contract",
+    "test:security": "vitest run tests/security",
+    "test:recovery": "vitest run tests/recovery",
+    "test:e2e": "vitest run tests/e2e",
+    "preflight:marketplace": "vitest run packages/marketplace-preflight",
+    "verify": "npm run lint && npm run test && npm run test:contract && npm run test:security && npm run test:recovery"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  }
+}

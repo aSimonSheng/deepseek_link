@@ -1,0 +1,14 @@
+{
+  "files": [],
+  "references": [
+    { "path": "./packages/protocol" },
+    { "path": "./packages/mock-dsh-host" },
+    { "path": "./packages/mobile-bridge-transport" },
+    { "path": "./packages/mobile-approval-policy" },
+    { "path": "./packages/mobile-surface-web" },
+    { "path": "./packages/token-usage-observer" },
+    { "path": "./packages/local-artifact-storage" },
+    { "path": "./packages/marketplace-preflight" },
+    { "path": "./tests" }
+  ]
+}

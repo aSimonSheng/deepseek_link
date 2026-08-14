@@ -1,0 +1,8 @@
+node_modules/
+dist/
+coverage/
+.corepack/
+.pnpm-store/
+.DS_Store
+*.log
+*.tsbuildinfo

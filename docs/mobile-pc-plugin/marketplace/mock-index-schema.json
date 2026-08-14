@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/dsh-mobile/mock-index.schema.json",
+  "type": "object",
+  "required": ["id", "displayName", "pluginVersion", "permissions"],
+  "properties": {
+    "id": { "type": "string" },
+    "displayName": { "type": "string" },
+    "pluginVersion": { "type": "string" },
+    "permissions": { "type": "object" },
+    "checksum": { "type": "string" },
+    "signature": { "type": "string" },
+    "sbom": { "type": "string" },
+    "provenance": { "type": "string" }
+  },
+  "additionalProperties": true
+}

@@ -1,0 +1,20 @@
+{
+  "id": "dsh-token-usage.observer",
+  "displayName": "DSH Token Usage Observer",
+  "type": "observer",
+  "manifestVersion": "1.0.0",
+  "pluginVersion": "0.0.0",
+  "apiVersion": "1.0",
+  "protocolVersion": "1.0",
+  "minDshVersion": "TBD",
+  "maxTestedDshVersion": "TBD",
+  "capabilities": [
+    "usage.observe",
+    "usage.summarize"
+  ],
+  "permissions": {
+    "secrets.read": [],
+    "secrets.write": [],
+    "artifact.read": ["summary"]
+  }
+}

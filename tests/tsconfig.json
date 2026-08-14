@@ -1,0 +1,13 @@
+{
+  "extends": "../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": ".",
+    "outDir": "../dist/tests",
+    "types": ["node", "vitest/globals"]
+  },
+  "references": [
+    { "path": "../packages/protocol" },
+    { "path": "../packages/mock-dsh-host" }
+  ],
+  "include": ["**/*.ts"]
+}
