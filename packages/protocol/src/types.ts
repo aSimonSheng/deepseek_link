@@ -16,6 +16,73 @@ export interface Principal {
   trustLevel?: "viewer" | "operator" | "approver" | "admin";
 }
 
+export type DeviceTrustLevel = NonNullable<Principal["trustLevel"]>;
+export type DevicePlatform = "ios" | "android" | "web" | "desktop" | "unknown";
+
+export interface DeviceRegistration {
+  deviceId: string;
+  displayName: string;
+  publicKey: string;
+  platform: DevicePlatform;
+}
+
+export interface DeviceIdentity extends DeviceRegistration {
+  trustLevel: DeviceTrustLevel;
+  pairedAt: string;
+  revoked: boolean;
+}
+
+export interface PairingOffer {
+  pairingId: string;
+  pairingCode: string;
+  createdAt: string;
+  expiresAt: string;
+  entropyBits: number;
+  oneTime: true;
+  pc: {
+    hostId: string;
+    displayName: string;
+  };
+  transport: {
+    kind: "mock" | "lan";
+    endpointHint: "loopback" | "lan";
+    authenticated: true;
+  };
+  allowedTrustLevels: DeviceTrustLevel[];
+}
+
+export interface PairingCompletion {
+  pairingId: string;
+  pairingCode: string;
+  requestedTrustLevel: DeviceTrustLevel;
+  device: DeviceRegistration;
+  nonce: string;
+  signature: string;
+}
+
+export interface SessionChallenge {
+  sessionId: string;
+  deviceId: string;
+  challenge: string;
+  issuedAt: string;
+  expiresAt: string;
+  seqStart: number;
+}
+
+export interface SessionOpenRequest {
+  sessionId: string;
+  deviceId: string;
+  challenge: string;
+  nonce: string;
+  signature: string;
+}
+
+export interface SessionProof {
+  kind: "session_proof";
+  nonce: string;
+  signature: string;
+}
+
 export type Capability =
   | "task.submit"
   | "task.cancel"
@@ -65,11 +132,7 @@ export interface RpcEnvelope<TParams = unknown> {
   timestamp: string;
   method: string;
   params: TParams;
-  auth: {
-    kind: "session_proof";
-    nonce: string;
-    signature: string;
-  };
+  auth: SessionProof;
 }
 
 export interface RpcError {

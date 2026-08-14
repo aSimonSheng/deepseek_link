@@ -9,18 +9,34 @@ import type {
   ArtifactReference,
   Capability,
   CapabilityLease,
+  DeviceIdentity,
+  DevicePlatform,
+  DeviceRegistration,
+  DeviceTrustLevel,
   HarnessEvent,
   HarnessEventType,
+  PairingCompletion,
+  PairingOffer,
   Principal,
   PrincipalKind,
   RedactionMetadata,
   RpcEnvelope,
   RpcError,
+  SessionChallenge,
+  SessionOpenRequest,
+  SessionProof,
   TaskIntent
 } from "./types.js";
 
 export type CoreProtocolSchemaName =
   | "protocol_version"
+  | "device_registration"
+  | "device_identity"
+  | "pairing_offer"
+  | "pairing_completion"
+  | "session_challenge"
+  | "session_open_request"
+  | "session_proof"
   | "rpc_envelope"
   | "rpc_response"
   | "rpc_error"
@@ -64,7 +80,8 @@ export const CAPABILITY_NAMES: readonly Capability[] = [
 ] as const;
 
 const principalKinds: readonly PrincipalKind[] = ["local_user", "mobile_device", "plugin", "system"] as const;
-const trustLevels: readonly NonNullable<Principal["trustLevel"]>[] = ["viewer", "operator", "approver", "admin"] as const;
+const trustLevels: readonly DeviceTrustLevel[] = ["viewer", "operator", "approver", "admin"] as const;
+const devicePlatforms: readonly DevicePlatform[] = ["ios", "android", "web", "desktop", "unknown"] as const;
 const redactionPolicies: readonly RedactionMetadata["policy"][] = ["default", "mobile-safe", "pc-only"] as const;
 const rpcErrorCodes: readonly RpcError["code"][] = [
   "bad_request",
@@ -118,6 +135,23 @@ const forbiddenIntentKeys = new Set([
   "shell",
   "token"
 ]);
+const forbiddenPairingKeys = new Set([
+  "apiKey",
+  "api_key",
+  "cwd",
+  "env",
+  "path",
+  "prompt",
+  "providerApiKey",
+  "secret",
+  "secrets",
+  "sessionToken",
+  "session_token",
+  "shell",
+  "token",
+  "workspacePath",
+  "workspaceRef"
+]);
 
 const highRiskCapabilitySet = new Set<string>(HIGH_RISK_CAPABILITIES);
 
@@ -125,6 +159,117 @@ export function validateProtocolVersion(value: unknown): ProtocolValidationResul
   const issues: ProtocolValidationIssue[] = [];
   validateProtocolVersionInto(value, issues, "$");
   return toResult(issues);
+}
+
+export function validateDeviceRegistration(value: unknown): ProtocolValidationResult {
+  const issues: ProtocolValidationIssue[] = [];
+  validateDeviceRegistrationInto(value, issues, "$");
+  return toResult(issues);
+}
+
+export function validateDeviceIdentity(value: unknown): ProtocolValidationResult {
+  const issues: ProtocolValidationIssue[] = [];
+
+  if (!isRecord(value)) {
+    return singleError("device_identity_not_object", "Device identity must be an object.", "$");
+  }
+
+  validateDeviceRegistrationInto(value, issues, "$");
+  requireEnum(value.trustLevel, trustLevels, "invalid_trust_level", "Invalid trust level.", "$.trustLevel", issues);
+  requireIsoTimestamp(value, "pairedAt", "$.pairedAt", issues);
+
+  if (typeof value.revoked !== "boolean") {
+    addIssue(issues, "revoked_not_boolean", "revoked must be a boolean.", "$.revoked");
+  }
+
+  return toResult(issues);
+}
+
+export function validatePairingOffer(value: unknown): ProtocolValidationResult {
+  const issues: ProtocolValidationIssue[] = [];
+
+  if (!isRecord(value)) {
+    return singleError("pairing_offer_not_object", "Pairing offer must be an object.", "$");
+  }
+
+  validateNoForbiddenPairingKeys(value, "$", issues);
+  requireString(value, "pairingId", "$.pairingId", issues);
+  requireMinString(value, "pairingCode", 12, "$.pairingCode", issues);
+  requireIsoTimestamp(value, "createdAt", "$.createdAt", issues);
+  requireIsoTimestamp(value, "expiresAt", "$.expiresAt", issues);
+  validateTtlWindow(value.createdAt, value.expiresAt, 300, "$.expiresAt", issues);
+  requireIntegerAtLeast(value, "entropyBits", 128, "$.entropyBits", issues);
+  requireLiteral(value.oneTime, true, "pairing_not_one_time", "Pairing offers must be one-time.", "$.oneTime", issues);
+  validatePairingPc(value.pc, issues, "$.pc");
+  validatePairingTransport(value.transport, issues, "$.transport");
+  validateTrustLevelArray(value.allowedTrustLevels, issues, "$.allowedTrustLevels");
+  return toResult(issues);
+}
+
+export function validatePairingCompletion(value: unknown): ProtocolValidationResult {
+  const issues: ProtocolValidationIssue[] = [];
+
+  if (!isRecord(value)) {
+    return singleError("pairing_completion_not_object", "Pairing completion must be an object.", "$");
+  }
+
+  validateNoForbiddenPairingKeys(value, "$", issues);
+  requireString(value, "pairingId", "$.pairingId", issues);
+  requireMinString(value, "pairingCode", 12, "$.pairingCode", issues);
+  requireEnum(
+    value.requestedTrustLevel,
+    trustLevels,
+    "invalid_requested_trust_level",
+    "Invalid requested trust level.",
+    "$.requestedTrustLevel",
+    issues
+  );
+  validateDeviceRegistrationInto(value.device, issues, "$.device");
+  requireString(value, "nonce", "$.nonce", issues);
+  requireString(value, "signature", "$.signature", issues);
+  return toResult(issues);
+}
+
+export function validateSessionChallenge(value: unknown): ProtocolValidationResult {
+  const issues: ProtocolValidationIssue[] = [];
+
+  if (!isRecord(value)) {
+    return singleError("session_challenge_not_object", "Session challenge must be an object.", "$");
+  }
+
+  requireString(value, "sessionId", "$.sessionId", issues);
+  requireString(value, "deviceId", "$.deviceId", issues);
+  requireMinString(value, "challenge", 12, "$.challenge", issues);
+  requireIsoTimestamp(value, "issuedAt", "$.issuedAt", issues);
+  requireIsoTimestamp(value, "expiresAt", "$.expiresAt", issues);
+  validateTtlWindow(value.issuedAt, value.expiresAt, 120, "$.expiresAt", issues);
+  requireNonNegativeInteger(value, "seqStart", "$.seqStart", issues);
+  return toResult(issues);
+}
+
+export function validateSessionOpenRequest(value: unknown): ProtocolValidationResult {
+  const issues: ProtocolValidationIssue[] = [];
+
+  if (!isRecord(value)) {
+    return singleError("session_open_request_not_object", "Session open request must be an object.", "$");
+  }
+
+  requireString(value, "sessionId", "$.sessionId", issues);
+  requireString(value, "deviceId", "$.deviceId", issues);
+  requireMinString(value, "challenge", 12, "$.challenge", issues);
+  requireString(value, "nonce", "$.nonce", issues);
+  requireString(value, "signature", "$.signature", issues);
+  return toResult(issues);
+}
+
+export function validateSessionProof(value: unknown): ProtocolValidationResult {
+  const issues: ProtocolValidationIssue[] = [];
+  validateSessionProofInto(value, issues, "$");
+  return toResult(issues);
+}
+
+export function assertValidSessionProof(value: unknown): asserts value is SessionProof {
+  assertValid(validateSessionProof(value));
 }
 
 export function validateRpcEnvelope(value: unknown): ProtocolValidationResult {
@@ -146,7 +291,7 @@ export function validateRpcEnvelope(value: unknown): ProtocolValidationResult {
     addIssue(issues, "params_missing", "params must be present, even when empty.", "$.params");
   }
 
-  validateSessionProof(value.auth, issues, "$.auth");
+  validateSessionProofInto(value.auth, issues, "$.auth");
   return toResult(issues);
 }
 
@@ -355,7 +500,73 @@ function validateProtocolVersionInto(value: unknown, issues: ProtocolValidationI
   }
 }
 
-function validateSessionProof(value: unknown, issues: ProtocolValidationIssue[], path: string): void {
+function validateDeviceRegistrationInto(value: unknown, issues: ProtocolValidationIssue[], path: string): void {
+  if (!isRecord(value)) {
+    addIssue(issues, "device_registration_not_object", "Device registration must be an object.", path);
+    return;
+  }
+
+  validateNoForbiddenPairingKeys(value, path, issues);
+  requireString(value, "deviceId", `${path}.deviceId`, issues);
+  requireString(value, "displayName", `${path}.displayName`, issues);
+  requireString(value, "publicKey", `${path}.publicKey`, issues);
+  requireEnum(value.platform, devicePlatforms, "invalid_device_platform", "Invalid device platform.", `${path}.platform`, issues);
+}
+
+function validatePairingPc(value: unknown, issues: ProtocolValidationIssue[], path: string): void {
+  if (!isRecord(value)) {
+    addIssue(issues, "pairing_pc_not_object", "pc must be an object.", path);
+    return;
+  }
+
+  requireString(value, "hostId", `${path}.hostId`, issues);
+  requireString(value, "displayName", `${path}.displayName`, issues);
+}
+
+function validatePairingTransport(value: unknown, issues: ProtocolValidationIssue[], path: string): void {
+  if (!isRecord(value)) {
+    addIssue(issues, "pairing_transport_not_object", "transport must be an object.", path);
+    return;
+  }
+
+  requireEnum(value.kind, ["mock", "lan"] as const, "invalid_pairing_transport", "Invalid transport kind.", `${path}.kind`, issues);
+  requireEnum(
+    value.endpointHint,
+    ["loopback", "lan"] as const,
+    "invalid_pairing_endpoint_hint",
+    "Invalid endpoint hint.",
+    `${path}.endpointHint`,
+    issues
+  );
+  requireLiteral(
+    value.authenticated,
+    true,
+    "pairing_transport_not_authenticated",
+    "Pairing transport hints must be authenticated.",
+    `${path}.authenticated`,
+    issues
+  );
+}
+
+function validateTrustLevelArray(value: unknown, issues: ProtocolValidationIssue[], path: string): void {
+  if (!Array.isArray(value) || value.length === 0) {
+    addIssue(issues, "trust_levels_not_array", "allowedTrustLevels must be a non-empty array.", path);
+    return;
+  }
+
+  value.forEach((trustLevel, index) => {
+    requireEnum(
+      trustLevel,
+      trustLevels,
+      "invalid_trust_level",
+      "Invalid trust level.",
+      `${path}[${index}]`,
+      issues
+    );
+  });
+}
+
+function validateSessionProofInto(value: unknown, issues: ProtocolValidationIssue[], path: string): void {
   if (!isRecord(value)) {
     addIssue(issues, "auth_not_object", "auth must be an object.", path);
     return;
@@ -518,9 +729,29 @@ function validateNoForbiddenIntentKeys(record: Record<string, unknown>, path: st
   }
 }
 
+function validateNoForbiddenPairingKeys(record: Record<string, unknown>, path: string, issues: ProtocolValidationIssue[]): void {
+  for (const key of Object.keys(record)) {
+    if (forbiddenPairingKeys.has(key)) {
+      addIssue(issues, "forbidden_pairing_field", `Pairing payload must not include ${key}.`, `${path}.${key}`);
+    }
+  }
+}
+
 function requireString(record: Record<string, unknown>, field: string, path: string, issues: ProtocolValidationIssue[]): void {
   if (!isNonEmptyString(record[field])) {
     addIssue(issues, "required_string_missing", `${field} must be a non-empty string.`, path);
+  }
+}
+
+function requireMinString(
+  record: Record<string, unknown>,
+  field: string,
+  minLength: number,
+  path: string,
+  issues: ProtocolValidationIssue[]
+): void {
+  if (!isNonEmptyString(record[field]) || String(record[field]).length < minLength) {
+    addIssue(issues, "string_too_short", `${field} must be at least ${minLength} characters.`, path);
   }
 }
 
@@ -542,6 +773,18 @@ function requireNonNegativeInteger(record: Record<string, unknown>, field: strin
   }
 }
 
+function requireIntegerAtLeast(
+  record: Record<string, unknown>,
+  field: string,
+  min: number,
+  path: string,
+  issues: ProtocolValidationIssue[]
+): void {
+  if (!Number.isInteger(record[field]) || Number(record[field]) < min) {
+    addIssue(issues, "integer_too_small", `${field} must be an integer >= ${min}.`, path);
+  }
+}
+
 function requireDigest(record: Record<string, unknown>, field: string, path: string, issues: ProtocolValidationIssue[]): void {
   if (!isDigest(record[field])) {
     addIssue(issues, "invalid_digest", `${field} must use sha256:<digest>.`, path);
@@ -556,7 +799,7 @@ function validateStringArray(value: unknown, message: string, path: string, issu
 
 function requireLiteral(
   value: unknown,
-  expected: string,
+  expected: string | boolean,
   code: string,
   message: string,
   path: string,
@@ -564,6 +807,34 @@ function requireLiteral(
 ): void {
   if (value !== expected) {
     addIssue(issues, code, message, path);
+  }
+}
+
+function validateTtlWindow(
+  startsAt: unknown,
+  expiresAt: unknown,
+  maxTtlSeconds: number,
+  path: string,
+  issues: ProtocolValidationIssue[]
+): void {
+  if (!isNonEmptyString(startsAt) || !isNonEmptyString(expiresAt)) {
+    return;
+  }
+
+  const startsAtMs = Date.parse(startsAt);
+  const expiresAtMs = Date.parse(expiresAt);
+  if (Number.isNaN(startsAtMs) || Number.isNaN(expiresAtMs)) {
+    return;
+  }
+
+  const ttlMs = expiresAtMs - startsAtMs;
+  if (ttlMs <= 0) {
+    addIssue(issues, "invalid_ttl_window", "expiresAt must be after the start timestamp.", path);
+    return;
+  }
+
+  if (ttlMs > maxTtlSeconds * 1000) {
+    addIssue(issues, "ttl_too_long", `TTL must be <= ${maxTtlSeconds} seconds.`, path);
   }
 }
 

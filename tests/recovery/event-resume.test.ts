@@ -27,4 +27,24 @@ describe("event recovery", () => {
     expect(allEvents.length).toBeGreaterThan(1);
     expect(resumed.every((event) => event.seq > 1)).toBe(true);
   });
+
+  it("requires a new session after PC restart while preserving paired device trust", async () => {
+    const host = createMockDshHost();
+    const pairing = await host.pairDevice({ deviceName: "phone", trustLevel: "operator" });
+    const session = await host.openSession(pairing.deviceId);
+
+    await host.injectFault("pc_restart");
+
+    const expired = await host.sendRpc(session, host.createEnvelope(session, "task.submit", 1));
+    expect(expired.ok).toBe(false);
+    if (!expired.ok) {
+      expect(expired.error.code).toBe("session_expired");
+    }
+
+    const resumedSession = await host.openSession(pairing.deviceId);
+    const resumed = await host.sendRpc(resumedSession, host.createEnvelope(resumedSession, "task.submit", 1));
+
+    expect(resumed.ok).toBe(true);
+    expect(resumedSession.principal.trustLevel).toBe("operator");
+  });
 });

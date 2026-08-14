@@ -6,9 +6,15 @@ import {
   validateApprovalRequest,
   validateArtifactReference,
   validateCapabilityLease,
+  validateDeviceRegistration,
   validateHarnessEvent,
+  validatePairingCompletion,
+  validatePairingOffer,
   validateRpcEnvelope,
   validateRpcResponse,
+  validateSessionChallenge,
+  validateSessionOpenRequest,
+  validateSessionProof,
   validateTaskIntent
 } from "@dsh-mobile/protocol";
 import { createMockDshHost } from "@dsh-mobile/mock-dsh-host";
@@ -45,6 +51,41 @@ describe("protocol contract", () => {
     expect(hasProtocolEnvelope(missingAuth)).toBe(false);
     expect(validateRpcEnvelope(missingAuth).issues.some((issue) => issue.code === "auth_not_object")).toBe(true);
     expect(validateRpcEnvelope(wrongMajor).issues.some((issue) => issue.code === "unsupported_protocol_major")).toBe(true);
+  });
+
+  it("validates pairing and session authentication schemas", () => {
+    const offer = pairingOffer();
+    const completion = pairingCompletion();
+    const challenge = sessionChallenge();
+    const openRequest = {
+      sessionId: challenge.sessionId,
+      deviceId: challenge.deviceId,
+      challenge: challenge.challenge,
+      nonce: "session-nonce",
+      signature: "mock-signature"
+    };
+    const proof = {
+      kind: "session_proof",
+      nonce: "rpc-nonce",
+      signature: "mock-signature"
+    };
+    const unsafeOffer = {
+      ...offer,
+      sessionToken: "long-lived-token"
+    };
+    const longTtlChallenge = {
+      ...challenge,
+      expiresAt: "2026-08-14T00:05:00.000Z"
+    };
+
+    expect(validatePairingOffer(offer)).toEqual({ ok: true, issues: [] });
+    expect(validatePairingCompletion(completion)).toEqual({ ok: true, issues: [] });
+    expect(validateDeviceRegistration(completion.device)).toEqual({ ok: true, issues: [] });
+    expect(validateSessionChallenge(challenge)).toEqual({ ok: true, issues: [] });
+    expect(validateSessionOpenRequest(openRequest)).toEqual({ ok: true, issues: [] });
+    expect(validateSessionProof(proof)).toEqual({ ok: true, issues: [] });
+    expect(validatePairingOffer(unsafeOffer).issues.some((issue) => issue.code === "forbidden_pairing_field")).toBe(true);
+    expect(validateSessionChallenge(longTtlChallenge).issues.some((issue) => issue.code === "ttl_too_long")).toBe(true);
   });
 
   it("validates mobile task intent and rejects direct command fields", () => {
@@ -222,5 +263,53 @@ function approvalRequest(): Record<string, unknown> {
       maxUses: 1
     },
     explain: "Mock approval request for contract tests"
+  };
+}
+
+function pairingOffer(): Record<string, unknown> {
+  return {
+    pairingId: "pair_1",
+    pairingCode: "mock-pairing-code",
+    createdAt: timestamp,
+    expiresAt: "2026-08-14T00:02:00.000Z",
+    entropyBits: 128,
+    oneTime: true,
+    pc: {
+      hostId: "pc_1",
+      displayName: "Mock DSH Host"
+    },
+    transport: {
+      kind: "mock",
+      endpointHint: "loopback",
+      authenticated: true
+    },
+    allowedTrustLevels: ["operator"]
+  };
+}
+
+function pairingCompletion(): Record<string, unknown> {
+  return {
+    pairingId: "pair_1",
+    pairingCode: "mock-pairing-code",
+    requestedTrustLevel: "operator",
+    device: {
+      deviceId: "dev_1",
+      displayName: "phone",
+      publicKey: "mock-public-key",
+      platform: "web"
+    },
+    nonce: "pairing-nonce",
+    signature: "mock-signature"
+  };
+}
+
+function sessionChallenge(): Record<string, unknown> {
+  return {
+    sessionId: "sess_1",
+    deviceId: "dev_1",
+    challenge: "mock-session-challenge",
+    issuedAt: timestamp,
+    expiresAt: "2026-08-14T00:01:00.000Z",
+    seqStart: 1
   };
 }
