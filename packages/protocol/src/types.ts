@@ -4,8 +4,8 @@ export type ProtocolName = typeof PROTOCOL_NAME;
 
 export interface ProtocolVersion {
   name: ProtocolName;
-  major: typeof PROTOCOL_MAJOR;
-  minor: typeof PROTOCOL_MINOR;
+  major: number;
+  minor: number;
 }
 
 export type PrincipalKind = "local_user" | "mobile_device" | "plugin" | "system";

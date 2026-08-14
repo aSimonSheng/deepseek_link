@@ -4,6 +4,7 @@ import {
   PROTOCOL_NAME,
   REDACTED_SECRET
 } from "./constants.js";
+import { validateRpcEnvelope } from "./schema.js";
 import type { ProtocolVersion, RpcEnvelope, UsageRecord } from "./types.js";
 
 export function currentProtocol(): ProtocolVersion {
@@ -19,20 +20,7 @@ export function isSupportedProtocol(protocol: ProtocolVersion): boolean {
 }
 
 export function hasProtocolEnvelope(value: unknown): value is RpcEnvelope {
-  if (!value || typeof value !== "object") {
-    return false;
-  }
-
-  const candidate = value as Partial<RpcEnvelope>;
-  return (
-    typeof candidate.messageId === "string" &&
-    typeof candidate.sessionId === "string" &&
-    typeof candidate.deviceId === "string" &&
-    typeof candidate.seq === "number" &&
-    typeof candidate.method === "string" &&
-    !!candidate.protocol &&
-    isSupportedProtocol(candidate.protocol as ProtocolVersion)
-  );
+  return validateRpcEnvelope(value).ok;
 }
 
 export function computeCacheHitRatio(record: UsageRecord): UsageRecord {
