@@ -33,6 +33,7 @@ Do not renumber existing ADRs. If a decision changes, create a new ADR and mark 
 | [ADR-0003](./ADR-0003-marketplace-index-target.md) | Marketplace / Index Target | Accepted | GAP-003, GAP-004, EXT-001 |
 | [ADR-0004](./ADR-0004-engineering-skeleton-and-mock-host.md) | Engineering Skeleton and Mock DSH Host | Accepted | GAP-007, GAP-008, GAP-009, GAP-010, GAP-011, GAP-012 |
 | [ADR-0005](./ADR-0005-manifest-schema-and-permission-model.md) | Manifest Schema and Permission Model | Accepted | GAP-013, GAP-014, GAP-015, GAP-016, GAP-017, GAP-019, GAP-020, GAP-085 |
+| [ADR-0006](./ADR-0006-core-protocol-schema.md) | Core Protocol Schema | Accepted | GAP-022, GAP-023, GAP-024, GAP-025, GAP-026, GAP-027, GAP-028, GAP-030, GAP-031, GAP-086 |
 
 ## Reviews
 
@@ -44,7 +45,6 @@ Do not renumber existing ADRs. If a decision changes, create a new ADR and mark 
 
 The current M0 audit also requires later ADRs for:
 
-- Core protocol schema.
 - Pairing and session authentication.
 - LAN transport.
 - Policy, lease, and approval digest.
