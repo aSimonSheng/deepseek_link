@@ -35,6 +35,7 @@ Do not renumber existing ADRs. If a decision changes, create a new ADR and mark 
 | [ADR-0005](./ADR-0005-manifest-schema-and-permission-model.md) | Manifest Schema and Permission Model | Accepted | GAP-013, GAP-014, GAP-015, GAP-016, GAP-017, GAP-019, GAP-020, GAP-085 |
 | [ADR-0006](./ADR-0006-core-protocol-schema.md) | Core Protocol Schema | Accepted | GAP-022, GAP-023, GAP-024, GAP-025, GAP-026, GAP-027, GAP-028, GAP-030, GAP-031, GAP-086 |
 | [ADR-0007](./ADR-0007-pairing-and-session-authentication.md) | Pairing and Session Authentication | Accepted | GAP-032, GAP-033, GAP-034, GAP-035, GAP-036, GAP-038, GAP-087, GAP-088 |
+| [ADR-0008](./ADR-0008-lan-transport-and-authenticated-endpoint-binding.md) | LAN Transport and Authenticated Endpoint Binding | Accepted | GAP-039, GAP-040, GAP-041, GAP-042, GAP-087, GAP-088 |
 
 ## Reviews
 
@@ -46,7 +47,6 @@ Do not renumber existing ADRs. If a decision changes, create a new ADR and mark 
 
 The current M0 audit also requires later ADRs for:
 
-- LAN transport.
 - Policy, lease, and approval digest.
 - Provider strategy.
 - Artifact visibility and redaction.

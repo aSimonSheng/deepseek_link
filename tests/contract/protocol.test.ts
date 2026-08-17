@@ -15,7 +15,10 @@ import {
   validateSessionChallenge,
   validateSessionOpenRequest,
   validateSessionProof,
-  validateTaskIntent
+  validateTaskIntent,
+  validateTransportEndpointBinding,
+  validateTransportEndpointConfig,
+  validateEventStreamCursor
 } from "@dsh-mobile/protocol";
 import { createMockDshHost } from "@dsh-mobile/mock-dsh-host";
 
@@ -86,6 +89,42 @@ describe("protocol contract", () => {
     expect(validateSessionProof(proof)).toEqual({ ok: true, issues: [] });
     expect(validatePairingOffer(unsafeOffer).issues.some((issue) => issue.code === "forbidden_pairing_field")).toBe(true);
     expect(validateSessionChallenge(longTtlChallenge).issues.some((issue) => issue.code === "ttl_too_long")).toBe(true);
+  });
+
+  it("validates transport endpoint binding and event stream cursors", () => {
+    const endpoint = transportEndpoint();
+    const lanWithoutEnable = {
+      ...endpoint,
+      kind: "lan",
+      bindHost: "lan",
+      lanEnabled: false
+    };
+    const unauthenticated = {
+      ...endpoint,
+      authenticated: false
+    };
+    const binding = transportBinding();
+    const principalMismatch = {
+      ...binding,
+      principal: {
+        kind: "mobile_device",
+        id: "dev_other",
+        trustLevel: "operator"
+      }
+    };
+    const cursor = eventStreamCursor();
+    const invalidCursor = {
+      ...cursor,
+      fromSeq: -1
+    };
+
+    expect(validateTransportEndpointConfig(endpoint)).toEqual({ ok: true, issues: [] });
+    expect(validateTransportEndpointConfig(lanWithoutEnable).issues.some((issue) => issue.code === "lan_bind_without_enable")).toBe(true);
+    expect(validateTransportEndpointConfig(unauthenticated).issues.some((issue) => issue.code === "transport_not_authenticated")).toBe(true);
+    expect(validateTransportEndpointBinding(binding)).toEqual({ ok: true, issues: [] });
+    expect(validateTransportEndpointBinding(principalMismatch).issues.some((issue) => issue.code === "binding_principal_mismatch")).toBe(true);
+    expect(validateEventStreamCursor(cursor)).toEqual({ ok: true, issues: [] });
+    expect(validateEventStreamCursor(invalidCursor).issues.some((issue) => issue.code === "non_negative_integer_required")).toBe(true);
   });
 
   it("validates mobile task intent and rejects direct command fields", () => {
@@ -311,5 +350,56 @@ function sessionChallenge(): Record<string, unknown> {
     issuedAt: timestamp,
     expiresAt: "2026-08-14T00:01:00.000Z",
     seqStart: 1
+  };
+}
+
+function transportEndpoint(): Record<string, unknown> {
+  return {
+    endpointId: "endpoint_1",
+    kind: "mock",
+    bindHost: "127.0.0.1",
+    port: 41731,
+    lanEnabled: false,
+    authenticated: true,
+    sessionRequired: true,
+    csrfProtection: true,
+    allowedOrigins: ["http://127.0.0.1"],
+    state: "listening",
+    createdAt: timestamp
+  };
+}
+
+function transportBinding(): Record<string, unknown> {
+  return {
+    bindingId: "binding_1",
+    endpointId: "endpoint_1",
+    sessionId: "sess_1",
+    deviceId: "dev_1",
+    principal: {
+      kind: "mobile_device",
+      id: "dev_1",
+      trustLevel: "operator"
+    },
+    authenticated: true,
+    boundAt: timestamp,
+    expiresAt: "2026-08-14T01:00:00.000Z",
+    lastAckSeq: 0,
+    gapPolicy: "replay_from_seq"
+  };
+}
+
+function eventStreamCursor(): Record<string, unknown> {
+  return {
+    endpointId: "endpoint_1",
+    sessionId: "sess_1",
+    deviceId: "dev_1",
+    runId: "run_1",
+    fromSeq: 0,
+    gapPolicy: "replay_from_seq",
+    auth: {
+      kind: "session_proof",
+      nonce: "rpc-nonce",
+      signature: "mock-signature"
+    }
   };
 }
