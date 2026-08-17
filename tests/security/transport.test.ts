@@ -46,4 +46,60 @@ describe("mobile bridge transport security controls", () => {
     expect(binding.authenticated).toBe(true);
     expect(binding.gapPolicy).toBe("replay_from_seq");
   });
+
+  it("rejects event resume without a matching endpoint binding", async () => {
+    const transport = createMobileBridgeTransport();
+    const host = createMockDshHost();
+    const pairing = await host.pairDevice({ deviceName: "phone" });
+    const session = await host.openSession(pairing.deviceId);
+    const endpoint = transport.start();
+    const cursor = {
+      endpointId: endpoint.endpointId,
+      sessionId: session.sessionId,
+      deviceId: session.deviceId,
+      runId: "run_1",
+      fromSeq: 0,
+      gapPolicy: "replay_from_seq" as const,
+      auth: host.createEnvelope(session, "run.events.read", 1).auth
+    };
+
+    expect(() => transport.resumeEvents(cursor, [])).toThrow("not bound");
+
+    transport.bindSession(session);
+
+    expect(() =>
+      transport.resumeEvents(
+        {
+          ...cursor,
+          deviceId: "dev_other"
+        },
+        []
+      )
+    ).toThrow("does not match endpoint binding");
+  });
+
+  it("rejects event resume after endpoint stop", async () => {
+    const transport = createMobileBridgeTransport();
+    const host = createMockDshHost();
+    const pairing = await host.pairDevice({ deviceName: "phone" });
+    const session = await host.openSession(pairing.deviceId);
+    const endpoint = transport.start();
+    transport.bindSession(session);
+    transport.stop();
+
+    expect(() =>
+      transport.resumeEvents(
+        {
+          endpointId: endpoint.endpointId,
+          sessionId: session.sessionId,
+          deviceId: session.deviceId,
+          runId: "run_1",
+          fromSeq: 0,
+          gapPolicy: "replay_from_seq",
+          auth: host.createEnvelope(session, "run.events.read", 1).auth
+        },
+        []
+      )
+    ).toThrow("not listening");
+  });
 });

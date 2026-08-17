@@ -166,6 +166,26 @@ const forbiddenPairingKeys = new Set([
   "workspacePath",
   "workspaceRef"
 ]);
+const forbiddenSensitiveKeys = new Set([
+  "apiKey",
+  "api_key",
+  "authorization",
+  "bearer",
+  "cmd",
+  "command",
+  "cwd",
+  "env",
+  "path",
+  "providerApiKey",
+  "secret",
+  "secrets",
+  "sessionToken",
+  "session_token",
+  "shell",
+  "token",
+  "workspacePath"
+]);
+const secretLikePattern = /sk-[A-Za-z0-9_-]{8,}|Bearer\s+[A-Za-z0-9._-]+|(?:SECRET|TOKEN|PASSWORD)=((?!\[REDACTED\])[^"\\\s]+)/i;
 
 const highRiskCapabilitySet = new Set<string>(HIGH_RISK_CAPABILITIES);
 
@@ -293,6 +313,7 @@ export function validateTransportEndpointConfig(value: unknown): ProtocolValidat
     return singleError("transport_endpoint_config_not_object", "Transport endpoint config must be an object.", "$");
   }
 
+  validateNoForbiddenSensitiveKeys(value, "$", issues);
   requireString(value, "endpointId", "$.endpointId", issues);
   requireEnum(value.kind, transportKinds, "invalid_transport_kind", "Invalid transport kind.", "$.kind", issues);
   requireEnum(value.bindHost, transportBindHosts, "invalid_bind_host", "Invalid bind host.", "$.bindHost", issues);
@@ -327,6 +348,7 @@ export function validateTransportEndpointBinding(value: unknown): ProtocolValida
     return singleError("transport_endpoint_binding_not_object", "Transport endpoint binding must be an object.", "$");
   }
 
+  validateNoForbiddenSensitiveKeys(value, "$", issues);
   requireString(value, "bindingId", "$.bindingId", issues);
   requireString(value, "endpointId", "$.endpointId", issues);
   requireString(value, "sessionId", "$.sessionId", issues);
@@ -353,6 +375,7 @@ export function validateEventStreamCursor(value: unknown): ProtocolValidationRes
     return singleError("event_stream_cursor_not_object", "Event stream cursor must be an object.", "$");
   }
 
+  validateNoForbiddenSensitiveKeys(value, "$", issues);
   requireString(value, "endpointId", "$.endpointId", issues);
   requireString(value, "sessionId", "$.sessionId", issues);
   requireString(value, "deviceId", "$.deviceId", issues);
@@ -435,6 +458,7 @@ export function validateHarnessEvent(value: unknown): ProtocolValidationResult {
     return singleError("harness_event_not_object", "Harness event must be an object.", "$");
   }
 
+  validateNoForbiddenSensitiveKeys(value, "$", issues);
   requireString(value, "eventId", "$.eventId", issues);
   validateOptionalString(value, "runId", "$.runId", issues);
   validateOptionalString(value, "sessionId", "$.sessionId", issues);
@@ -449,6 +473,9 @@ export function validateHarnessEvent(value: unknown): ProtocolValidationResult {
   }
 
   validateRedactionMetadataInto(value.redaction, issues, "$.redaction");
+  if (isRecord(value.redaction) && value.redaction.policy !== "pc-only") {
+    validateNoSecretLikeContent(value.data, "$.data", issues);
+  }
   return toResult(issues);
 }
 
@@ -480,6 +507,7 @@ export function validateApprovalRequest(value: unknown): ProtocolValidationResul
     return singleError("approval_request_not_object", "Approval request must be an object.", "$");
   }
 
+  validateNoForbiddenSensitiveKeys(value, "$", issues);
   requireString(value, "approvalId", "$.approvalId", issues);
   requireString(value, "runId", "$.runId", issues);
   validateRequestedBy(value.requestedBy, issues, "$.requestedBy");
@@ -544,6 +572,7 @@ export function validateArtifactReference(value: unknown): ProtocolValidationRes
     return singleError("artifact_reference_not_object", "Artifact reference must be an object.", "$");
   }
 
+  validateNoForbiddenSensitiveKeys(value, "$", issues);
   requireString(value, "artifactId", "$.artifactId", issues);
   requireString(value, "runId", "$.runId", issues);
   requireEnum(value.kind, artifactKinds, "invalid_artifact_kind", "Invalid artifact kind.", "$.kind", issues);
@@ -752,8 +781,10 @@ function validateApprovalAction(value: unknown, issues: ProtocolValidationIssue[
     return;
   }
 
+  validateNoForbiddenSensitiveKeys(value, path, issues);
   requireString(value, "kind", `${path}.kind`, issues);
   requireString(value, "preview", `${path}.preview`, issues);
+  validateNoSecretLikeContent(value.preview, `${path}.preview`, issues);
   requireDigest(value, "digest", `${path}.digest`, issues);
 }
 
@@ -825,6 +856,21 @@ function validateNoForbiddenPairingKeys(record: Record<string, unknown>, path: s
     if (forbiddenPairingKeys.has(key)) {
       addIssue(issues, "forbidden_pairing_field", `Pairing payload must not include ${key}.`, `${path}.${key}`);
     }
+  }
+}
+
+function validateNoForbiddenSensitiveKeys(record: Record<string, unknown>, path: string, issues: ProtocolValidationIssue[]): void {
+  for (const key of Object.keys(record)) {
+    if (forbiddenSensitiveKeys.has(key)) {
+      addIssue(issues, "forbidden_sensitive_field", `Payload must not include sensitive field ${key}.`, `${path}.${key}`);
+    }
+  }
+}
+
+function validateNoSecretLikeContent(value: unknown, path: string, issues: ProtocolValidationIssue[]): void {
+  const serialized = typeof value === "string" ? value : JSON.stringify(value);
+  if (typeof serialized === "string" && secretLikePattern.test(serialized)) {
+    addIssue(issues, "secret_like_content", "Payload contains secret-like content.", path);
   }
 }
 

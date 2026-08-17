@@ -81,6 +81,7 @@ export interface MockDshHostTestApi {
   injectFault(fault: RecoveryFault, runId?: string): Promise<void>;
   revokeDevice(deviceId: string): Promise<void>;
   expirePairing(pairingId: string): void;
+  expireSessionChallenge(sessionId: string): void;
   expireSession(sessionId: string): void;
   getControlEvents(fromSeq?: number): HarnessEvent[];
   assertNoSecretsLeaked(scope: "mobile" | "events" | "artifacts"): void;
@@ -552,6 +553,13 @@ export class MockDshHost implements MockDshHostTestApi {
     const pairing = this.pairings.get(pairingId);
     if (pairing) {
       pairing.expiresAtMs = 0;
+    }
+  }
+
+  expireSessionChallenge(sessionId: string): void {
+    const challenge = this.sessionChallenges.get(sessionId);
+    if (challenge) {
+      challenge.expiresAtMs = 0;
     }
   }
 

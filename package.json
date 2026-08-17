@@ -17,7 +17,7 @@
     "test:recovery": "vitest run tests/recovery",
     "test:e2e": "vitest run tests/e2e",
     "preflight:marketplace": "vitest run packages/marketplace-preflight",
-    "verify": "npm run lint && npm run test && npm run test:contract && npm run test:security && npm run test:recovery"
+    "verify": "npm run lint && npm run test && npm run test:contract && npm run test:security && npm run test:recovery && npm run test:e2e && npm run preflight:marketplace"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",

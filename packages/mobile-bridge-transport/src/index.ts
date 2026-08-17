@@ -43,6 +43,7 @@ export function createMobileBridgeTransport(
   options: CreateMobileBridgeTransportOptions = {}
 ): MobileBridgeTransport {
   let endpoint = createEndpoint(options, "stopped");
+  const bindings = new Map<string, TransportEndpointBinding>();
 
   return {
     pluginId: PLUGIN_ID,
@@ -61,9 +62,30 @@ export function createMobileBridgeTransport(
       assertValidConfig(endpoint);
       return endpoint;
     },
-    bindSession: (input) => createBinding(endpoint, input),
+    bindSession: (input) => {
+      const binding = createBinding(endpoint, input);
+      bindings.set(binding.sessionId, binding);
+      return binding;
+    },
     resumeEvents: (cursor, events) => {
       assertValidCursor(cursor);
+      if (endpoint.state !== "listening") {
+        throw new Error("Transport endpoint is not listening");
+      }
+      const binding = bindings.get(cursor.sessionId);
+      if (!binding) {
+        throw new Error("Transport cursor is not bound to a session");
+      }
+      if (
+        binding.endpointId !== cursor.endpointId ||
+        binding.deviceId !== cursor.deviceId ||
+        binding.sessionId !== cursor.sessionId
+      ) {
+        throw new Error("Transport cursor does not match endpoint binding");
+      }
+      if (Date.parse(binding.expiresAt) < Date.now()) {
+        throw new Error("Transport endpoint binding expired");
+      }
       const resumed = events
         .filter((event) => event.runId === cursor.runId && event.seq > cursor.fromSeq)
         .sort((left, right) => left.seq - right.seq);
