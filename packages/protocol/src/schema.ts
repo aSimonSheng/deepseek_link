@@ -13,6 +13,8 @@ import type {
   DevicePlatform,
   DeviceRegistration,
   DeviceTrustLevel,
+  EventGapPolicy,
+  EventStreamCursor,
   HarnessEvent,
   HarnessEventType,
   PairingCompletion,
@@ -25,7 +27,12 @@ import type {
   SessionChallenge,
   SessionOpenRequest,
   SessionProof,
-  TaskIntent
+  TaskIntent,
+  TransportBindHost,
+  TransportEndpointBinding,
+  TransportEndpointConfig,
+  TransportKind,
+  TransportState
 } from "./types.js";
 
 export type CoreProtocolSchemaName =
@@ -37,6 +44,9 @@ export type CoreProtocolSchemaName =
   | "session_challenge"
   | "session_open_request"
   | "session_proof"
+  | "transport_endpoint_config"
+  | "transport_endpoint_binding"
+  | "event_stream_cursor"
   | "rpc_envelope"
   | "rpc_response"
   | "rpc_error"
@@ -82,6 +92,10 @@ export const CAPABILITY_NAMES: readonly Capability[] = [
 const principalKinds: readonly PrincipalKind[] = ["local_user", "mobile_device", "plugin", "system"] as const;
 const trustLevels: readonly DeviceTrustLevel[] = ["viewer", "operator", "approver", "admin"] as const;
 const devicePlatforms: readonly DevicePlatform[] = ["ios", "android", "web", "desktop", "unknown"] as const;
+const transportKinds: readonly TransportKind[] = ["mock", "lan"] as const;
+const transportBindHosts: readonly TransportBindHost[] = ["127.0.0.1", "lan"] as const;
+const transportStates: readonly TransportState[] = ["stopped", "listening"] as const;
+const eventGapPolicies: readonly EventGapPolicy[] = ["replay_from_seq", "fail_closed"] as const;
 const redactionPolicies: readonly RedactionMetadata["policy"][] = ["default", "mobile-safe", "pc-only"] as const;
 const rpcErrorCodes: readonly RpcError["code"][] = [
   "bad_request",
@@ -270,6 +284,83 @@ export function validateSessionProof(value: unknown): ProtocolValidationResult {
 
 export function assertValidSessionProof(value: unknown): asserts value is SessionProof {
   assertValid(validateSessionProof(value));
+}
+
+export function validateTransportEndpointConfig(value: unknown): ProtocolValidationResult {
+  const issues: ProtocolValidationIssue[] = [];
+
+  if (!isRecord(value)) {
+    return singleError("transport_endpoint_config_not_object", "Transport endpoint config must be an object.", "$");
+  }
+
+  requireString(value, "endpointId", "$.endpointId", issues);
+  requireEnum(value.kind, transportKinds, "invalid_transport_kind", "Invalid transport kind.", "$.kind", issues);
+  requireEnum(value.bindHost, transportBindHosts, "invalid_bind_host", "Invalid bind host.", "$.bindHost", issues);
+  requirePort(value, "port", "$.port", issues);
+
+  if (typeof value.lanEnabled !== "boolean") {
+    addIssue(issues, "lan_enabled_not_boolean", "lanEnabled must be a boolean.", "$.lanEnabled");
+  }
+
+  requireLiteral(value.authenticated, true, "transport_not_authenticated", "Transport endpoint must require authentication.", "$.authenticated", issues);
+  requireLiteral(value.sessionRequired, true, "session_not_required", "Transport endpoint must require sessions.", "$.sessionRequired", issues);
+  requireLiteral(value.csrfProtection, true, "csrf_not_enabled", "Transport endpoint must enable CSRF protection.", "$.csrfProtection", issues);
+  validateStringArray(value.allowedOrigins, "allowedOrigins must be an array of strings.", "$.allowedOrigins", issues);
+  requireEnum(value.state, transportStates, "invalid_transport_state", "Invalid transport state.", "$.state", issues);
+  requireIsoTimestamp(value, "createdAt", "$.createdAt", issues);
+
+  if (value.bindHost === "lan" && value.lanEnabled !== true) {
+    addIssue(issues, "lan_bind_without_enable", "LAN binding requires lanEnabled: true.", "$.lanEnabled");
+  }
+
+  if (value.bindHost === "127.0.0.1" && value.lanEnabled === true) {
+    addIssue(issues, "lan_enabled_on_loopback", "lanEnabled must be false for loopback-only binding.", "$.lanEnabled");
+  }
+
+  return toResult(issues);
+}
+
+export function validateTransportEndpointBinding(value: unknown): ProtocolValidationResult {
+  const issues: ProtocolValidationIssue[] = [];
+
+  if (!isRecord(value)) {
+    return singleError("transport_endpoint_binding_not_object", "Transport endpoint binding must be an object.", "$");
+  }
+
+  requireString(value, "bindingId", "$.bindingId", issues);
+  requireString(value, "endpointId", "$.endpointId", issues);
+  requireString(value, "sessionId", "$.sessionId", issues);
+  requireString(value, "deviceId", "$.deviceId", issues);
+  validatePrincipal(value.principal, issues, "$.principal");
+  requireLiteral(value.authenticated, true, "binding_not_authenticated", "Endpoint binding must be authenticated.", "$.authenticated", issues);
+  requireIsoTimestamp(value, "boundAt", "$.boundAt", issues);
+  requireIsoTimestamp(value, "expiresAt", "$.expiresAt", issues);
+  validateTtlWindow(value.boundAt, value.expiresAt, 3600, "$.expiresAt", issues);
+  requireNonNegativeInteger(value, "lastAckSeq", "$.lastAckSeq", issues);
+  requireEnum(value.gapPolicy, eventGapPolicies, "invalid_gap_policy", "Invalid event gap policy.", "$.gapPolicy", issues);
+
+  if (isRecord(value.principal) && value.principal.kind === "mobile_device" && value.principal.id !== value.deviceId) {
+    addIssue(issues, "binding_principal_mismatch", "Mobile principal id must match deviceId.", "$.principal.id");
+  }
+
+  return toResult(issues);
+}
+
+export function validateEventStreamCursor(value: unknown): ProtocolValidationResult {
+  const issues: ProtocolValidationIssue[] = [];
+
+  if (!isRecord(value)) {
+    return singleError("event_stream_cursor_not_object", "Event stream cursor must be an object.", "$");
+  }
+
+  requireString(value, "endpointId", "$.endpointId", issues);
+  requireString(value, "sessionId", "$.sessionId", issues);
+  requireString(value, "deviceId", "$.deviceId", issues);
+  requireString(value, "runId", "$.runId", issues);
+  requireNonNegativeInteger(value, "fromSeq", "$.fromSeq", issues);
+  requireEnum(value.gapPolicy, eventGapPolicies, "invalid_gap_policy", "Invalid event gap policy.", "$.gapPolicy", issues);
+  validateSessionProofInto(value.auth, issues, "$.auth");
+  return toResult(issues);
 }
 
 export function validateRpcEnvelope(value: unknown): ProtocolValidationResult {
@@ -770,6 +861,12 @@ function requirePositiveInteger(record: Record<string, unknown>, field: string, 
 function requireNonNegativeInteger(record: Record<string, unknown>, field: string, path: string, issues: ProtocolValidationIssue[]): void {
   if (!Number.isInteger(record[field]) || Number(record[field]) < 0) {
     addIssue(issues, "non_negative_integer_required", `${field} must be a non-negative integer.`, path);
+  }
+}
+
+function requirePort(record: Record<string, unknown>, field: string, path: string, issues: ProtocolValidationIssue[]): void {
+  if (!Number.isInteger(record[field]) || Number(record[field]) < 1 || Number(record[field]) > 65535) {
+    addIssue(issues, "invalid_port", `${field} must be an integer from 1 to 65535.`, path);
   }
 }
 

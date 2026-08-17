@@ -83,6 +83,48 @@ export interface SessionProof {
   signature: string;
 }
 
+export type TransportKind = "mock" | "lan";
+export type TransportBindHost = "127.0.0.1" | "lan";
+export type TransportState = "stopped" | "listening";
+export type EventGapPolicy = "replay_from_seq" | "fail_closed";
+
+export interface TransportEndpointConfig {
+  endpointId: string;
+  kind: TransportKind;
+  bindHost: TransportBindHost;
+  port: number;
+  lanEnabled: boolean;
+  authenticated: true;
+  sessionRequired: true;
+  csrfProtection: true;
+  allowedOrigins: string[];
+  state: TransportState;
+  createdAt: string;
+}
+
+export interface TransportEndpointBinding {
+  bindingId: string;
+  endpointId: string;
+  sessionId: string;
+  deviceId: string;
+  principal: Principal;
+  authenticated: true;
+  boundAt: string;
+  expiresAt: string;
+  lastAckSeq: number;
+  gapPolicy: EventGapPolicy;
+}
+
+export interface EventStreamCursor {
+  endpointId: string;
+  sessionId: string;
+  deviceId: string;
+  runId: string;
+  fromSeq: number;
+  gapPolicy: EventGapPolicy;
+  auth: SessionProof;
+}
+
 export type Capability =
   | "task.submit"
   | "task.cancel"

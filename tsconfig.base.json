@@ -18,7 +18,8 @@
     "baseUrl": ".",
     "paths": {
       "@dsh-mobile/protocol": ["packages/protocol/src/index.ts"],
-      "@dsh-mobile/mock-dsh-host": ["packages/mock-dsh-host/src/index.ts"]
+      "@dsh-mobile/mock-dsh-host": ["packages/mock-dsh-host/src/index.ts"],
+      "@dsh-mobile/mobile-bridge-transport": ["packages/mobile-bridge-transport/src/index.ts"]
     }
   }
 }

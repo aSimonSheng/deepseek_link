@@ -8,7 +8,8 @@ export default defineConfig({
   resolve: {
     alias: {
       "@dsh-mobile/protocol": fileURLToPath(new URL("./packages/protocol/src/index.ts", import.meta.url)),
-      "@dsh-mobile/mock-dsh-host": fileURLToPath(new URL("./packages/mock-dsh-host/src/index.ts", import.meta.url))
+      "@dsh-mobile/mock-dsh-host": fileURLToPath(new URL("./packages/mock-dsh-host/src/index.ts", import.meta.url)),
+      "@dsh-mobile/mobile-bridge-transport": fileURLToPath(new URL("./packages/mobile-bridge-transport/src/index.ts", import.meta.url))
     }
   }
 });
